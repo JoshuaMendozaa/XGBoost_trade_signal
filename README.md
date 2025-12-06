@@ -55,30 +55,29 @@ The system calculates these indicators automatically:
 - **Volume Ratio** - unusual trading activity
 - **VIX** - fear gauge for the overall market
 
-### 💰 Automatic Position Sizing
 
-The system calculates how many shares to buy based on:
+## Technical Details
 
-```
-Position Size = (Account × Risk %) / (Entry Price × ATR × 2)
-```
+### Machine Learning Model
 
-Example with $100,000 account:
-- Stock price: $500
-- ATR (volatility): 1% of price
-- Risk per trade: 2%
-- **Result**: Buy 200 shares with stop-loss at $490
+Uses **LightGBM** (Light Gradient Boosting Machine):
+- Fast training on large datasets
+- Handles missing values automatically
+- Good with imbalanced data (more "hold" than "buy" signals)
 
-### 🛡️ Risk Controls
+### Feature Engineering
 
-| Control | Default | What It Does |
-|---------|---------|--------------|
-| Max Loss Per Trade | 2% | Never risk more than this on one trade |
-| Position Size Limit | 10% | Max amount in any single stock |
-| Cooldown Period | 4 hours | Wait before trading again after a trade |
-| Stop-Loss | 2× ATR | Automatic exit if price drops |
-| Take Profit | 1.5% | Automatic exit when you're winning |
-| Time Exit | 3 hours | Exit after 3 hours no matter what |
+All features are **level-invariant**, meaning they work the same whether a stock is at $50 or $500:
+- Returns instead of raw prices
+- Ratios instead of absolute values
+- Normalized oscillators (0-100 scale)
+
+### Train/Validation/Test Split
+
+Data is split chronologically (never randomly):
+- **70%** for training
+- **15%** for validation (tune threshold)
+- **15%** for testing (final results)
 
 ---
 
@@ -146,15 +145,6 @@ print(signal)
 #     'risk_dollars': 2000.00
 # }
 ```
-
-### Run a Backtest
-
-```python
-# Test on historical data with walk-forward validation
-results = system.walk_forward_backtest(df, n_splits=5)
-print(results)
-```
-
 ---
 
 ## Understanding the Output
@@ -194,19 +184,6 @@ Min R/R: 0.5:1
 - With risk filter: Fewer trades (98), but wins more often (62.2%)
 - With trend filter: Even fewer trades (52), but highest win rate (67.3%)
 
-### Signal Output
-
-| Field | Meaning |
-|-------|---------|
-| `signal` | BUY or HOLD |
-| `probability` | Model's confidence (0-100%) |
-| `current_price` | Current stock price |
-| `stop_loss` | Exit price if trade goes wrong |
-| `shares` | How many shares to buy |
-| `position_value` | Total dollar amount |
-| `risk_dollars` | Max you could lose |
-
----
 
 ## Configuration Options
 
@@ -282,41 +259,6 @@ XGBoost_trade_signal/
 
 ---
 
-## Example Workflow
-
-### Daily Trading Routine
-
-```python
-from trading_system import TradingSignalSystem, DataLoader
-from datetime import datetime
-
-# 1. Load your trained system (or train fresh)
-system = TradingSignalSystem(account_size=50000)
-df = DataLoader.from_yfinance('SPY', period='2y', interval='1d')
-system.train(df)
-
-# 2. Check for signals during market hours
-recent = DataLoader.from_yfinance('SPY', period='1mo', interval='1h')
-signal = system.generate_signal(recent)
-
-if signal['signal'] == 'BUY':
-    print(f"🟢 BUY {signal['shares']} shares at ${signal['current_price']:.2f}")
-    print(f"   Stop-loss: ${signal['stop_loss']:.2f}")
-    print(f"   Confidence: {signal['probability']:.1%}")
-    
-    # Execute the trade (update system state)
-    system.execute_signal(signal)
-else:
-    print(f"⏸️ HOLD - {signal['reason']}")
-
-# 3. If in a position, check for exit
-exit_signal = system.check_exit(recent)
-if exit_signal:
-    print(f"🔴 EXIT - {exit_signal['reason']}")
-    print(f"   P&L: ${exit_signal['pnl_dollars']:.2f}")
-```
-
----
 
 ## Tips for Best Results
 
@@ -368,41 +310,8 @@ This prevents "peeking" at future data and gives realistic results.
 - Need at least 60 bars of data
 - Load more history with `period='3mo'`
 
-### "Features contain NaN"
-- Normal at start of data (need history for indicators)
-- System will skip these automatically
-
-### Model always says HOLD
-- Threshold might be too high
-- Check `system.signal_threshold` after training
-- Try lowering it: `system.signal_threshold = 0.4`
-
 ---
 
-## Technical Details
-
-### Machine Learning Model
-
-Uses **LightGBM** (Light Gradient Boosting Machine):
-- Fast training on large datasets
-- Handles missing values automatically
-- Good with imbalanced data (more "hold" than "buy" signals)
-
-### Feature Engineering
-
-All features are **level-invariant**, meaning they work the same whether a stock is at $50 or $500:
-- Returns instead of raw prices
-- Ratios instead of absolute values
-- Normalized oscillators (0-100 scale)
-
-### Train/Validation/Test Split
-
-Data is split chronologically (never randomly):
-- **70%** for training
-- **15%** for validation (tune threshold)
-- **15%** for testing (final results)
-
----
 
 ## License
 
