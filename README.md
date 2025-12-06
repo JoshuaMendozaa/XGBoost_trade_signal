@@ -187,17 +187,6 @@ Min R/R: 0.5:1
 
 ## Configuration Options
 
-### TradingSignalSystem Parameters
-
-```python
-system = TradingSignalSystem(
-    account_size=100000,      # Total account value in dollars
-    max_loss_pct=2.0,         # Max % to risk per trade (1-5% recommended)
-    cooldown_hours=4,         # Hours to wait after each trade
-    position_size_pct=10      # Max % of account in one position
-)
-```
-
 ### Training Parameters
 
 ```python
